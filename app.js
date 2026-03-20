@@ -43,6 +43,70 @@
 		showCropView();
 	}
 
+	// Try native decode (Safari supports HEIC via ImageIO; also works for any
+	// browser-supported format). Requires the page to be served over HTTP(S).
+	function tryNativeDecode(file) {
+		return new Promise((resolve, reject) => {
+			const url = URL.createObjectURL(file);
+			const img = new Image();
+			img.onload = () => {
+				const canvas = document.createElement("canvas");
+				canvas.width = img.naturalWidth;
+				canvas.height = img.naturalHeight;
+				canvas.getContext("2d").drawImage(img, 0, 0);
+				URL.revokeObjectURL(url);
+				canvas.toBlob(
+					(blob) => (blob ? resolve(blob) : reject()),
+					"image/jpeg",
+					1,
+				);
+			};
+			img.onerror = () => {
+				URL.revokeObjectURL(url);
+				reject();
+			};
+			img.src = url;
+		});
+	}
+
+	// WASM fallback via libheif-js for Chrome (may not support all HEIC variants)
+	function decodeHeicWasm(file) {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = (e) => {
+				try {
+					const lib = libheif();
+					const decoder = new lib.HeifDecoder();
+					const data = decoder.decode(new Uint8Array(e.target.result));
+					if (!data || !data.length) {
+						reject(new Error("No images"));
+						return;
+					}
+					const image = data[0];
+					const width = image.get_width();
+					const height = image.get_height();
+					const canvas = document.createElement("canvas");
+					canvas.width = width;
+					canvas.height = height;
+					const ctx = canvas.getContext("2d");
+					const imageData = ctx.createImageData(width, height);
+					image.display(imageData, (result) => {
+						if (!result) {
+							reject(new Error("Display failed"));
+							return;
+						}
+						ctx.putImageData(result, 0, 0);
+						canvas.toBlob(resolve, "image/jpeg", 1);
+					});
+				} catch (err) {
+					reject(err);
+				}
+			};
+			reader.onerror = reject;
+			reader.readAsArrayBuffer(file);
+		});
+	}
+
 	function showCropView() {
 		const file = queue[currentIndex];
 
@@ -77,11 +141,12 @@
 		};
 
 		if (isHeic(file)) {
-			heic2any({ blob: file, toType: "image/jpeg", quality: 1 })
+			tryNativeDecode(file)
+				.catch(() => decodeHeicWasm(file))
 				.then(loadBlob)
 				.catch(() => {
 					alert(
-						`Could not decode "${file.name}".\n\nHEIC/HEIF conversion requires the page to be served over HTTP — it won't work when opened directly as a file://. Try GitHub Pages or run a local server:\n\n  python3 -m http.server`,
+						`Could not decode "${file.name}". This is likely due to it being a photo from a newer iPhone, which clogs it's image data purposefully for maximum bugginess.\n\nFor HEIC support, open this page in Safari on macOS. Otherwise please upload a different file.`,
 					);
 					advance();
 				});
