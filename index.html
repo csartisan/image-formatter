@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Image Squisher</title>
+		<link
+			rel="stylesheet"
+			href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css"
+		/>
+		<link rel="stylesheet" href="style.css" />
+	</head>
+	<body>
+		<div id="drop-view">
+			<div id="drop-zone">
+				<input
+					type="file"
+					id="file-input"
+					accept="image/png,image/jpeg"
+					multiple
+					hidden
+				/>
+				<p class="drop-icon">+</p>
+				<p class="drop-label">Drop images here</p>
+				<p class="drop-sub">PNG or JPG &mdash; multiple files supported</p>
+				<button id="browse-btn" type="button">Browse files</button>
+			</div>
+		</div>
+		<div id="crop-view" hidden>
+			<div id="crop-header">
+				<span id="queue-label"></span>
+				<span id="filename-label"></span>
+			</div>
+			<div id="crop-container">
+				<img id="crop-image" src="" alt="" />
+			</div>
+			<div id="crop-toolbar">
+				<button id="skip-btn" type="button">Skip</button>
+				<button id="export-btn" type="button">Export &amp; Next</button>
+			</div>
+		</div>
+
+		<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
+		<script src="app.js"></script>
+	</body>
+</html>
