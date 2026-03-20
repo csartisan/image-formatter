@@ -24,10 +24,19 @@
 		);
 	}
 
+	function isHeic(file) {
+		if (file.type === "image/heic" || file.type === "image/heif") return true;
+		const ext = file.name.split(".").pop().toLowerCase();
+		return ext === "heic" || ext === "heif";
+	}
+
+	function isImage(file) {
+		if (file.type === "image/png" || file.type === "image/jpeg") return true;
+		return isHeic(file);
+	}
+
 	function loadFiles(files) {
-		const valid = Array.from(files).filter(
-			(f) => f.type === "image/png" || f.type === "image/jpeg",
-		);
+		const valid = Array.from(files).filter(isImage);
 		if (!valid.length) return;
 		queue = valid;
 		currentIndex = 0;
@@ -48,22 +57,37 @@
 			cropper = null;
 		}
 
-		const reader = new FileReader();
-		reader.onload = (e) => {
-			cropImage.src = e.target.result;
-			cropImage.onload = () => {
-				cropper = new Cropper(cropImage, {
-					aspectRatio: 4 / 3,
-					viewMode: 1,
-					autoCropArea: 1,
-					movable: true,
-					zoomable: false,
-					rotatable: false,
-					scalable: false,
-				});
+		const loadBlob = (blob) => {
+			const reader = new FileReader();
+			reader.onload = (e) => {
+				cropImage.src = e.target.result;
+				cropImage.onload = () => {
+					cropper = new Cropper(cropImage, {
+						aspectRatio: 4 / 3,
+						viewMode: 1,
+						autoCropArea: 1,
+						movable: true,
+						zoomable: false,
+						rotatable: false,
+						scalable: false,
+					});
+				};
 			};
+			reader.readAsDataURL(blob);
 		};
-		reader.readAsDataURL(file);
+
+		if (isHeic(file)) {
+			heic2any({ blob: file, toType: "image/jpeg", quality: 1 })
+				.then(loadBlob)
+				.catch(() => {
+					alert(
+						`Could not decode "${file.name}".\n\nHEIC/HEIF conversion requires the page to be served over HTTP — it won't work when opened directly as a file://. Try GitHub Pages or run a local server:\n\n  python3 -m http.server`,
+					);
+					advance();
+				});
+		} else {
+			loadBlob(file);
+		}
 	}
 
 	function advance() {
